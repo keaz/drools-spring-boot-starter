@@ -1,14 +1,11 @@
-package com.keta.rule.cluster.jgroup;
+package com.keta.rule.cluster;
 
-import org.jgroups.Message;
-import org.jgroups.Receiver;
-import org.springframework.stereotype.Service;
+import com.keta.rule.cluster.notify.Update;
 
-@Service
-public class JGroupMessageReceiver implements Receiver {
+public interface MessageReceiver {
 
-    @Override
-    public void receive(Message msg) {
-        System.out.println((String)msg.getObject() );
-    }
+    void handleRefresh();
+
+    void handleUpdate(Update update);
+
 }

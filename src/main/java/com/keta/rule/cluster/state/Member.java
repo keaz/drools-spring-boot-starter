@@ -1,2 +1,22 @@
-package com.keta.rule.cluster.state;public class Member {
+package com.keta.rule.cluster.state;
+
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+import java.util.Date;
+
+@Data
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+public class Member {
+
+    @EqualsAndHashCode.Include
+    private String address;
+    private String gitTag;
+    private String commitId;
+    private String commitAuthor;
+    private Date commitDate;
+    private String commitMessage;
+
+
+
 }

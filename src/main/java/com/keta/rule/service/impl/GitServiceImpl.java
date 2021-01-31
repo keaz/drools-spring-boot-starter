@@ -28,7 +28,7 @@ public class GitServiceImpl implements GitService {
 
     @PostConstruct
     public void init() {
-        cloneRepo();
+//        cloneRepo();
     }
 
     @Override

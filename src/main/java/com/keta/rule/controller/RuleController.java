@@ -1,8 +1,9 @@
 package com.keta.rule.controller;
 
-import com.keta.rule.model.RuleVersion;
-import com.keta.rule.service.Session;
+import com.keta.rule.cluster.ClusterManager;
+import com.keta.rule.cluster.state.ClusterState;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -14,17 +15,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("v1/rule")
 public class RuleController {
 
-    private final Session session;
+    private final ClusterManager clusterManager;
 
     @PutMapping("refresh")
     public ResponseEntity<Void> refresh() {
-        session.refresh();
-        return ResponseEntity.ok().build();
+        clusterManager.notifyForRefresh();
+        return ResponseEntity.status(HttpStatus.ACCEPTED).build();
     }
 
     @GetMapping("info")
-    public ResponseEntity<RuleVersion> info() {
-        return ResponseEntity.ok(session.getCurrentVersion());
+    public ResponseEntity<ClusterState> info() {
+        return ResponseEntity.ok(clusterManager.getClusterState());
     }
 
 

@@ -1,6 +1,9 @@
 package com.keta.rule.service.impl;
 
 import com.keta.rule.Fact;
+import com.keta.rule.cluster.ClusterManager;
+import com.keta.rule.cluster.MessageReceiver;
+import com.keta.rule.cluster.notify.Update;
 import com.keta.rule.service.GitService;
 import com.keta.rule.service.Session;
 import com.keta.rule.model.RuleVersion;
@@ -29,9 +32,12 @@ import java.util.stream.Collectors;
 @Log4j2
 @Service
 @DependsOn({"gitServiceImpl"})
-public class DroolsSessionImpl implements Session {
+public class DroolsSessionImpl implements Session , MessageReceiver {
+
+    private static final String [] SUPPORTED_FILE_TYPE = {"drl","xlsx"};
 
     private KieServices kieServices = KieServices.Factory.get();
+
 
     private final ConfigData configData;
     private final GitService gitService;
@@ -66,8 +72,18 @@ public class DroolsSessionImpl implements Session {
         File ruleDirectory = new File(ruleFileDirectory);
         File[] files = ruleDirectory.listFiles();
         return Arrays.stream(files).sequential().filter(File::isFile)
-                .filter(file -> file.getName().endsWith("xlsx"))
+                .filter(file -> getFileExtension(file.getName()))
                 .map(File::getPath).collect(Collectors.toList());
+    }
+
+    private boolean getFileExtension(String fileName){
+        String extension = fileName.substring(fileName.lastIndexOf(".") + 1);
+        for (String supportedExtension : SUPPORTED_FILE_TYPE) {
+            if (extension.equals(supportedExtension)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private KieFileSystem getKieFileSystem(){
@@ -82,7 +98,7 @@ public class DroolsSessionImpl implements Session {
 
     private void getKieRepository() {
         final KieRepository kieRepository = kieServices.getRepository();
-        kieRepository.addKieModule(() -> kieRepository.getDefaultReleaseId());
+        kieRepository.addKieModule(kieRepository::getDefaultReleaseId);
     }
 
     private void createSession(){
@@ -104,4 +120,13 @@ public class DroolsSessionImpl implements Session {
     }
 
 
+    @Override
+    public void handleRefresh() {
+        refresh();
+    }
+
+    @Override
+    public void handleUpdate(Update update) {
+
+    }
 }
