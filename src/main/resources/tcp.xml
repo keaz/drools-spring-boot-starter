@@ -1,0 +1,46 @@
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns="urn:org:jgroups"
+        xsi:schemaLocation="urn:org:jgroups http://www.jgroups.org/schema/jgroups.xsd" version="5.0.0.Final">
+
+    <TCP bind_addr="localhost" bind_port="7802" port_range="2"
+         recv_buf_size="20000000" send_buf_size="640000"
+         max_bundle_size="64k" bundler_type="old" enable_diagnostics="true"
+         thread_naming_pattern="cl" thread_pool.enabled="true" thread_pool.min_threads="1"
+         thread_pool.max_threads="2" thread_pool.keep_alive_time="5000"
+         diag_enable_tcp="true" loopback_separate_thread="true"/>
+
+
+    <JDBC_PING connection_url="jdbc:postgresql://localhost:5432/jgroup"
+               connection_username="postgres" connection_password="postgres"
+               connection_driver="org.postgresql.Driver"
+               initialize_sql="CREATE TABLE IF NOT EXISTS JGROUPSPING
+                                (own_addr varchar(200) NOT NULL,
+                                    cluster_name varchar(200) NOT NULL,
+                                    ping_data bytea DEFAULT NULL,
+                                    PRIMARY KEY (own_addr, cluster_name)
+                                    )"
+               insert_single_sql="INSERT INTO JGROUPSPING (own_addr, cluster_name, ping_data) values (?, ?, ?)"
+               delete_single_sql="DELETE FROM JGROUPSPING WHERE own_addr=? AND cluster_name=?"
+               select_all_pingdata_sql="SELECT ping_data FROM JGROUPSPING WHERE cluster_name=?"
+    />
+
+    <MERGE3 max_interval="30000" min_interval="10000"/>
+    <FD_SOCK/>
+    <FD_ALL timeout="15000"/>
+    <VERIFY_SUSPECT timeout="5000"/>
+    <pbcast.NAKACK2 xmit_interval="1000" xmit_table_num_rows="100" xmit_table_msgs_per_row="10000"
+                    xmit_table_max_compaction_time="10000"/>
+
+    <UNICAST3/>
+
+    <pbcast.STABLE stability_delay="500" desired_avg_gossip="5000"
+                   max_bytes="1m"/>
+
+    <pbcast.GMS print_local_addr="false" join_timeout="3000"
+                max_join_attempts="5" />
+    <UFC max_credits="200k" min_threshold="0.20"/>
+    <MFC max_credits="200k" min_threshold="0.20"/>
+    <FRAG2 frag_size="8000"/>
+    <RSVP timeout="60000" resend_interval="500" ack_on_delivery="true"/>
+
+</config>
