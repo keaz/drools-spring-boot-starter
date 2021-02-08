@@ -7,37 +7,39 @@ import com.keta.rule.cluster.notify.State;
 import com.keta.rule.cluster.notify.Update;
 import com.keta.rule.cluster.state.ClusterState;
 import com.keta.rule.cluster.state.Member;
+import com.keta.rule.exception.NotifyException;
 import com.keta.rule.model.RuleVersion;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.jgroups.*;
+import org.jgroups.util.MessageBatch;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Log4j2
-@Service
 public class JGroupClusterManager implements ClusterManager, Receiver {
 
-    private JChannel channel;
-
-    private final MessageReceiver messageReceiver;
+    private final JChannel channel;
     private final ClusterState clusterState = new ClusterState();
+    private MessageReceiver messageReceiver;
 
     @PostConstruct
     @Override
     public void join() {
-        try {
-            channel = new JChannel("src/main/resources/tcp.xml");
-            channel.connect("drools-cluster");
-            channel.setReceiver(this);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        log.info("Joining the JGroup cluster");
+        channel.setReceiver(this);
+    }
+
+    @Override
+    public void setMessageReceiver(MessageReceiver messageReceiver) {
+        this.messageReceiver = messageReceiver;
     }
 
     @Override
@@ -46,9 +48,10 @@ public class JGroupClusterManager implements ClusterManager, Receiver {
         ObjectMessage message = new ObjectMessage();
         message.setObject(new Refresh(addressAsString));
         try {
+            log.info("Notifying refresh to cluster ");
             channel.send(message);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new NotifyException("Failed to notify refresh to cluster", e);
         }
     }
 
@@ -71,17 +74,23 @@ public class JGroupClusterManager implements ClusterManager, Receiver {
             return;
         }
 
-        if(message instanceof State){
+        if (message instanceof State) {
             log.info("Handling State event {}", message);
-            Address destination = msg.getDest();
-            State state = (State)message;
-            if(clusterState.getMembers().containsKey(destination)){
-                Member member = clusterState.getMembers().get(destination);
+
+            State state = (State) message;
+            String address = state.getAddress();
+            if (clusterState.getMembers().containsKey(address)) {
+                Member member = clusterState.getMembers().get(address);
                 createMember(state, member);
                 return;
             }
-            log.warn("Cannot find member {} ",destination);
+            log.warn("Cannot find member {} ", address);
         }
+    }
+
+    @Override
+    public void receive(MessageBatch batch) {
+        batch.stream().forEach(this::receive);
     }
 
     private void createMember(State state, Member member) {
@@ -100,7 +109,7 @@ public class JGroupClusterManager implements ClusterManager, Receiver {
         log.info("View Update {}", newView);
     }
 
-    private Member createMember(Address address){
+    private Member createMember(Address address) {
         Member member = new Member();
         member.setAddress(address.toString());
         return member;
@@ -112,16 +121,26 @@ public class JGroupClusterManager implements ClusterManager, Receiver {
     }
 
     @Override
-    public void notifyState(RuleVersion ruleVersion){
+    public void notifyState(RuleVersion ruleVersion) {
         String addressAsString = channel.getAddressAsString();
         ObjectMessage message = new ObjectMessage();
 
-        message.setObject(new Refresh(addressAsString));
+        State state = new State(addressAsString, ruleVersion.getGitTag(), ruleVersion.getCommitId(),
+                ruleVersion.getCommitAuthor(), ruleVersion.getCommitDate()
+                , ruleVersion.getCommitMessage());
+        message.setObject(state);
         try {
+            log.info("Notifying state to cluster");
             channel.send(message);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            log.error("Failed to notify state to cluster", e);
+            throw new NotifyException("Failed to notify to cluster ", e);
         }
     }
 
+    @Override
+    @PreDestroy
+    public void leave() {
+        channel.close();
+    }
 }

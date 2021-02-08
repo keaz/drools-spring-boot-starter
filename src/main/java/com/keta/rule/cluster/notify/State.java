@@ -6,13 +6,13 @@ import lombok.Getter;
 import java.util.Date;
 
 @Getter
-public class State extends ClusterMessage {
+public final class State extends ClusterMessage {
 
-    private String gitTag;
-    private String commitId;
-    private String commitAuthor;
-    private Date commitDate;
-    private String commitMessage;
+    private final String gitTag;
+    private final String commitId;
+    private final String commitAuthor;
+    private final Date commitDate;
+    private final String commitMessage;
 
     public State(String address, String gitTag, String commitId, String commitAuthor, Date commitDate, String commitMessage) {
         super(address);

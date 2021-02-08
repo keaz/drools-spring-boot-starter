@@ -13,6 +13,8 @@ public class ConfigData {
     private String gitUrl;
     private String gitUserName;
     private String gitToken;
+    private String gitBranch;
     private String directory;
+    private ClusterType clusterType;
 
 }

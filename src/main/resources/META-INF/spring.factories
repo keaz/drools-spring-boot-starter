@@ -1,2 +1,4 @@
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+com.keta.rule.config.JGroupConfiguration,\
+com.keta.rule.config.JDBCConfiguration,\
 com.keta.rule.config.RuleConfiguration

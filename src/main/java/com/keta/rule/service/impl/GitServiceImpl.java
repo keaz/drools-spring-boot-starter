@@ -21,7 +21,6 @@ import java.util.*;
 
 @Log4j2
 @RequiredArgsConstructor
-@Service
 public class GitServiceImpl implements GitService {
 
     private final ConfigData configData;

@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 
 @RequiredArgsConstructor
 @Log4j2
-@Service
 public class RuleServiceImpl<T extends Fact> implements RuleService<T> {
 
     private final Session session;

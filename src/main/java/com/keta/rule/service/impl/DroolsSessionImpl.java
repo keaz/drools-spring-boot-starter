@@ -20,6 +20,9 @@ import org.kie.api.runtime.KieSession;
 import org.kie.internal.io.ResourceFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.DependsOn;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.scheduling.annotation.Schedules;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -30,17 +33,15 @@ import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Log4j2
-@Service
-@DependsOn({"gitServiceImpl"})
 public class DroolsSessionImpl implements Session , MessageReceiver {
 
     private static final String [] SUPPORTED_FILE_TYPE = {"drl","xlsx"};
 
     private KieServices kieServices = KieServices.Factory.get();
 
-
     private final ConfigData configData;
     private final GitService gitService;
+    private final ClusterManager clusterManager;
     @Autowired(required = false)
     private KieSession kieSession;
 
@@ -48,6 +49,7 @@ public class DroolsSessionImpl implements Session , MessageReceiver {
     @PostConstruct
     public void init(){
         log.info("Initializing Drools Session");
+        clusterManager.setMessageReceiver(this);
         createSession();
     }
 
@@ -114,9 +116,13 @@ public class DroolsSessionImpl implements Session , MessageReceiver {
         log.info("KieSession created");
     }
 
+    @Scheduled(fixedRateString = "${com.keta.rule.state-update-rate:10000}",initialDelayString = "${com.keta.rule.state-update-delay:10000}")
+    @Async
     @Override
     public RuleVersion getCurrentVersion() {
-        return gitService.getCurrentVersion();
+        RuleVersion currentVersion = gitService.getCurrentVersion();
+        clusterManager.notifyState(currentVersion);
+        return currentVersion;
     }
 
 

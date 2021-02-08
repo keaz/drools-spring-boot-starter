@@ -1,0 +1,6 @@
+.idea/*
+drools-demo.iml
+compiled/*
+source/*
+target/*
+src/main/resources/application-dev.yml

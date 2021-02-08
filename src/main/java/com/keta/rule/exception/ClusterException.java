@@ -4,9 +4,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 @ResponseStatus(code = HttpStatus.INTERNAL_SERVER_ERROR)
-public class GitException extends RuntimeException {
+public class ClusterException extends RuntimeException{
 
-    public GitException(String message,Exception root) {
+    public ClusterException(String message,Exception root){
         super(message,root);
     }
+
 }

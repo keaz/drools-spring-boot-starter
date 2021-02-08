@@ -6,7 +6,11 @@ import com.keta.rule.model.RuleVersion;
 
 public interface ClusterManager {
 
+    void setMessageReceiver(MessageReceiver receiver);
+
     void join();
+
+    void leave();
 
     void notifyForRefresh();
 

@@ -1,0 +1,9 @@
+keta:
+  rule:
+    directory: 'customer'
+    cloned-directory: 'rules-cloned'
+    git-url: 'https://github.com/keaz/drools-rules.git'
+    git-user-name: 'brms'
+    git-token: 6ffe61722612c2afe45eb5c17aca42a11a941804
+    git-branch: master
+    cluster-type: JDBC
