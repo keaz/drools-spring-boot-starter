@@ -1,5 +1,6 @@
 package com.keta.rule.cluster.jdbc;
 
+import com.keta.rule.cluster.notify.Join;
 import com.keta.rule.cluster.notify.Refresh;
 import com.keta.rule.cluster.notify.Update;
 import com.keta.rule.exception.JDBCClusterException;
@@ -14,6 +15,7 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -23,19 +25,23 @@ public class JDBCMessageSender {
 
     private final Map<String, ConnectedMember> connectedMembers = new HashedMap<>();
 
-    public boolean addMember(String memberId, String hostName, int port) {
-        if (connectedMembers.containsKey(memberId)) {
-            return false;
-        }
+    public void notifyJoin(List<JDBCMembers> members) {
 
-        try {
-            Socket socket = new Socket(hostName, port);
-            connectedMembers.put(memberId, new ConnectedMember(memberId, socket));
-            return true;
-        } catch (IOException e) {
-            log.error("Failed to connect to member {} ", memberId, e);
-            throw new JDBCClusterException("Failed to connect to member " + memberId, e);
-        }
+        connectedMembers.clear();
+
+        members.forEach(jdbcMembers -> {
+            String memberId = jdbcMembers.getId();
+            try {
+                Socket socket = new Socket(jdbcMembers.getHostName(), jdbcMembers.getPort());
+                ConnectedMember connectedMember = new ConnectedMember(memberId, socket);
+                connectedMember.send(new Join("XXX"));
+                connectedMembers.put(memberId, connectedMember);
+            } catch (IOException e) {
+                log.error("Failed to connect to member {} ", memberId, e);
+                throw new JDBCClusterException("Failed to connect to member " + memberId, e);
+            }
+        });
+
     }
 
     public void notifyForRefresh(String memberId) {

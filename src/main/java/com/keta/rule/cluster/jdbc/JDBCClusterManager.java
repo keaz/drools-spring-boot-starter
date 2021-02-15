@@ -13,6 +13,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.List;
 
 @RequiredArgsConstructor
 @Log4j2
@@ -37,10 +38,16 @@ public class JDBCClusterManager implements ClusterManager {
         try {
             hostName = InetAddress.getLocalHost().getHostName();
             sqlConnector.register(hostName, messageReceiver.getPort());
+            List<JDBCMembers> members = sqlConnector.members();
+            notifyJoin(members);
         } catch (UnknownHostException e) {
             log.error("Cannot get host name ", e);
             throw new JDBCClusterException("Cannot get host name ", e);
         }
+    }
+
+    private void notifyJoin(List<JDBCMembers> members){
+        jdbcMessageSender.notifyJoin(members);
     }
 
     @Override

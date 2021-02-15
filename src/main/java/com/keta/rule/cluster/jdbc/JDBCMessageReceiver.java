@@ -1,6 +1,7 @@
 package com.keta.rule.cluster.jdbc;
 
 import com.keta.rule.cluster.MessageReceiver;
+import com.keta.rule.cluster.notify.ClusterMessage;
 import com.keta.rule.cluster.notify.Update;
 import com.keta.rule.exception.JDBCClusterException;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +10,8 @@ import lombok.extern.log4j.Log4j2;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -17,7 +20,7 @@ import java.net.Socket;
 public class JDBCMessageReceiver implements MessageReceiver {
 
     private final ServerSocket socket;
-    private volatile boolean running;
+    private volatile boolean running = true;
 
     public int getPort() {
         return socket.getLocalPort();
@@ -25,19 +28,23 @@ public class JDBCMessageReceiver implements MessageReceiver {
 
     @PostConstruct
     public void init() {
-        new Thread() {
-            @Override
-            public void run() {
-                while (running) {
-                    try {
-                        Socket clientSocket = socket.accept();
-                    } catch (IOException e) {
-                        log.error("Failed to accept incoming message", e);
-                        throw new JDBCClusterException("Failed to accept incoming message", e);
-                    }
+        new Thread(() -> {
+            while (running) {
+                try {
+                    Socket clientSocket = socket.accept();
+                    InputStream inputStream = clientSocket.getInputStream();
+                    ObjectInputStream objectInputStream = new ObjectInputStream(inputStream);
+                    ClusterMessage o = (ClusterMessage)objectInputStream.readObject();
+                    System.out.println(o);
+                    objectInputStream.close();
+                    inputStream.close();
+                    clientSocket.close();
+                } catch (IOException | ClassNotFoundException e) {
+                    log.error("Failed to accept incoming message", e);
+                    throw new JDBCClusterException("Failed to accept incoming message", e);
                 }
             }
-        }.start();
+        }).start();
     }
 
     private void eventLoop() {

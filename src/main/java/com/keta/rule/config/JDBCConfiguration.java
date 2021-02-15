@@ -51,7 +51,9 @@ public class JDBCConfiguration {
 
     public JDBCMessageReceiver jdbcMessageReceiver(){
         try {
-            return new JDBCMessageReceiver(new ServerSocket(configData.getPort()));
+            JDBCMessageReceiver jdbcMessageReceiver = new JDBCMessageReceiver(new ServerSocket(configData.getPort()));
+            jdbcMessageReceiver.init();
+            return jdbcMessageReceiver;
         } catch (IOException e) {
             log.error("Failed to create Server Socket",e);
             throw new JDBCClusterException("Failed to create Server Socket",e);
