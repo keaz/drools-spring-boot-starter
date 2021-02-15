@@ -8,11 +8,9 @@ import com.keta.rule.exception.JDBCClusterException;
 import com.keta.rule.model.RuleVersion;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
-import javax.sql.DataSource;
+import javax.annotation.PreDestroy;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
@@ -20,8 +18,12 @@ import java.net.UnknownHostException;
 @Log4j2
 public class JDBCClusterManager implements ClusterManager {
 
+    private final ClusterState clusterState = new ClusterState();
+    private final SQLConnector sqlConnector;
+    private final String memberId;
+    private final JDBCMessageReceiver messageReceiver;
+    private final JDBCMessageSender jdbcMessageSender;
     private String hostName;
-    private final DataSource dataSource;
 
     @Override
     public void setMessageReceiver(MessageReceiver receiver) {
@@ -34,14 +36,18 @@ public class JDBCClusterManager implements ClusterManager {
         log.info("Joining the JDBC cluster");
         try {
             hostName = InetAddress.getLocalHost().getHostName();
+            sqlConnector.register(hostName, messageReceiver.getPort());
         } catch (UnknownHostException e) {
+            log.error("Cannot get host name ", e);
             throw new JDBCClusterException("Cannot get host name ", e);
         }
     }
 
     @Override
+    @PreDestroy
     public void leave() {
-
+        log.info("Leaving the JDBC cluster");
+        sqlConnector.leave();
     }
 
     @Override

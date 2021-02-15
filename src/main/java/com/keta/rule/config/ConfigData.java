@@ -16,5 +16,6 @@ public class ConfigData {
     private String gitBranch;
     private String directory;
     private ClusterType clusterType;
+    private int port;
 
 }
