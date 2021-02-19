@@ -2,6 +2,8 @@ package com.keta.rule.cluster.jdbc;
 
 import com.keta.rule.cluster.ClusterManager;
 import com.keta.rule.cluster.MessageReceiver;
+import com.keta.rule.cluster.notify.Join;
+import com.keta.rule.cluster.notify.State;
 import com.keta.rule.cluster.notify.Update;
 import com.keta.rule.cluster.state.ClusterState;
 import com.keta.rule.exception.JDBCClusterException;
@@ -24,11 +26,12 @@ public class JDBCClusterManager implements ClusterManager {
     private final String memberId;
     private final JDBCMessageReceiver messageReceiver;
     private final JDBCMessageSender jdbcMessageSender;
+    private final int port;
     private String hostName;
 
     @Override
     public void setMessageReceiver(MessageReceiver receiver) {
-
+        //#TODO not implemented yet
     }
 
     @PostConstruct
@@ -37,17 +40,17 @@ public class JDBCClusterManager implements ClusterManager {
         log.info("Joining the JDBC cluster");
         try {
             hostName = InetAddress.getLocalHost().getHostName();
-            sqlConnector.register(hostName, messageReceiver.getPort());
+            sqlConnector.register(hostName, port);
             List<JDBCMembers> members = sqlConnector.members();
-            notifyJoin(members);
+            notifyJoin(members, memberId);
         } catch (UnknownHostException e) {
             log.error("Cannot get host name ", e);
             throw new JDBCClusterException("Cannot get host name ", e);
         }
     }
 
-    private void notifyJoin(List<JDBCMembers> members){
-        jdbcMessageSender.notifyJoin(members);
+    private void notifyJoin(List<JDBCMembers> members, String memberId) {
+        jdbcMessageSender.notifyJoin(members, new Join(memberId));
     }
 
     @Override
@@ -59,12 +62,13 @@ public class JDBCClusterManager implements ClusterManager {
 
     @Override
     public void notifyForRefresh() {
-
+        //#TODO not implemented yet
     }
 
     @Override
     public void notifyUpdateUpdate(Update update) {
-
+        List<JDBCMembers> members = sqlConnector.members();
+        jdbcMessageSender.notifyUpdate(members, update);
     }
 
     @Override
@@ -74,6 +78,9 @@ public class JDBCClusterManager implements ClusterManager {
 
     @Override
     public void notifyState(RuleVersion ruleVersion) {
-
+        List<JDBCMembers> members = sqlConnector.members();
+        State state = new State(memberId, ruleVersion.getGitTag(), ruleVersion.getCommitId(), ruleVersion.getCommitAuthor(),
+                ruleVersion.getCommitDate(), ruleVersion.getCommitMessage());
+        jdbcMessageSender.notifyState(members, state);
     }
 }

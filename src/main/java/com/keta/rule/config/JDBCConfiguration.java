@@ -21,7 +21,10 @@ import org.springframework.context.annotation.Configuration;
 import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.nio.channels.ServerSocketChannel;
 import java.util.UUID;
 
 
@@ -46,12 +49,16 @@ public class JDBCConfiguration {
 
     @Bean
     public ClusterManager clusterManager(DataSource dataSource){
-        return new JDBCClusterManager(new SQLConnector(dataSource,MEMBER_ID),MEMBER_ID,jdbcMessageReceiver(),new JDBCMessageSender());
+        return new JDBCClusterManager(new SQLConnector(dataSource,MEMBER_ID),MEMBER_ID,jdbcMessageReceiver(),new JDBCMessageSender(),configData.getPort());
     }
 
     public JDBCMessageReceiver jdbcMessageReceiver(){
         try {
-            JDBCMessageReceiver jdbcMessageReceiver = new JDBCMessageReceiver(new ServerSocket(configData.getPort()));
+            InetSocketAddress inetSocketAddress = new InetSocketAddress(InetAddress.getLocalHost(), configData.getPort());
+            ServerSocketChannel serverChannel = ServerSocketChannel.open();
+            serverChannel.configureBlocking(false);
+            serverChannel.socket().bind(inetSocketAddress);
+            JDBCMessageReceiver jdbcMessageReceiver = new JDBCMessageReceiver(serverChannel);
             jdbcMessageReceiver.init();
             return jdbcMessageReceiver;
         } catch (IOException e) {

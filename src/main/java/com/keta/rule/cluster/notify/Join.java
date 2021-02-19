@@ -5,8 +5,8 @@ import lombok.Value;
 @Value
 public class Join extends ClusterMessage {
 
-    public Join(String address) {
-        super(address);
+    public Join(String memberId) {
+        super(memberId);
     }
 
 }

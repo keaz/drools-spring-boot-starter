@@ -1,116 +1,63 @@
 package com.keta.rule.cluster.jdbc;
 
-import com.keta.rule.cluster.notify.Join;
-import com.keta.rule.cluster.notify.Refresh;
-import com.keta.rule.cluster.notify.Update;
+import com.keta.rule.cluster.notify.*;
 import com.keta.rule.exception.JDBCClusterException;
-import com.keta.rule.model.RuleVersion;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.apache.commons.collections4.map.HashedMap;
 
-import javax.annotation.PreDestroy;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
-import java.io.OutputStream;
-import java.net.Socket;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 
 @RequiredArgsConstructor
 @Log4j2
 public class JDBCMessageSender {
 
-    private final Map<String, ConnectedMember> connectedMembers = new HashedMap<>();
 
-    public void notifyJoin(List<JDBCMembers> members) {
-
-        connectedMembers.clear();
-
-        members.forEach(jdbcMembers -> {
-            String memberId = jdbcMembers.getId();
-            try {
-                Socket socket = new Socket(jdbcMembers.getHostName(), jdbcMembers.getPort());
-                ConnectedMember connectedMember = new ConnectedMember(memberId, socket);
-                connectedMember.send(new Join("XXX"));
-                connectedMembers.put(memberId, connectedMember);
-            } catch (IOException e) {
-                log.error("Failed to connect to member {} ", memberId, e);
-                throw new JDBCClusterException("Failed to connect to member " + memberId, e);
-            }
-        });
-
+    public void notifyJoin(List<JDBCMembers> members, Join join) {
+        members.forEach(jdbcMembers -> sendMessage(jdbcMembers, join));
     }
 
-    public void notifyForRefresh(String memberId) {
-        Refresh refresh = new Refresh(memberId);
+    public void notifyForRefresh(List<JDBCMembers> members, Refresh refresh) {
+        members.forEach(member -> sendMessage(member, refresh));
+    }
+
+    public void notifyUpdate(List<JDBCMembers> members, Update update) {
+        members.forEach(member -> sendMessage(member, update));
+    }
+
+    public void notifyState(List<JDBCMembers> members, State state) {
+        members.forEach(member -> sendMessage(member, state));
     }
 
 
-    public void notifyUpdateUpdate(Update update) {
+    private void sendMessage(JDBCMembers jdbcMember, ClusterMessage clusterMessage) {
+        String messageName = clusterMessage.getClass().getSimpleName();
+        InetSocketAddress hostAddress = new InetSocketAddress(jdbcMember.getHostName(), jdbcMember.getPort());
+        try (SocketChannel client = SocketChannel.open(hostAddress)) {
+            client.configureBlocking(true);
+            log.info("Client... started");
+            ByteBuffer byteBuffer = getByteBuffer(clusterMessage);
+            client.write(byteBuffer);
+            byteBuffer.clear();
+        } catch (IOException e) {
+            log.error("Failed to connect to member {} ", jdbcMember.getId(), e);
+            throw new JDBCClusterException("Failed to connect to member " + jdbcMember.getId(), e);
+        } finally {
+            log.info("Closing connection after sending {} message to member: {}", messageName, jdbcMember.getId());
+        }
 
     }
 
-
-    public void notifyState(RuleVersion ruleVersion) {
-
-    }
-
-
-    @PreDestroy
-    public void close() {
-        connectedMembers.values().stream().forEach(ConnectedMember::close);
-    }
-
-    private class ConnectedMember {
-
-        private final String id;
-        private final Socket socket;
-
-        public ConnectedMember(String id, Socket socket) {
-            this.id = id;
-            this.socket = socket;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            ConnectedMember that = (ConnectedMember) o;
-            return id.equals(that.id);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(id);
-        }
-
-        public void send(Object message) {
-            try {
-                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
-                objectOutputStream.writeObject(message);
-                OutputStream outputStream = socket.getOutputStream();
-                outputStream.write(byteArrayOutputStream.toByteArray());
-                outputStream.flush();
-                outputStream.close();
-            } catch (IOException e) {
-                log.error("Failed to serialize message", e);
-                throw new JDBCClusterException("Failed to serialize message", e);
-            }
-        }
-
-        public void close() {
-            try {
-                socket.close();
-            } catch (IOException e) {
-                log.info("Failed to close client socket {}", id, e);
-                throw new JDBCClusterException("Failed to close client socket " + id, e);
-            }
-        }
-
+    private ByteBuffer getByteBuffer(ClusterMessage message) throws IOException {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
+        objectOutputStream.writeObject(message);
+        return ByteBuffer.wrap(byteArrayOutputStream.toByteArray());
     }
 
 }

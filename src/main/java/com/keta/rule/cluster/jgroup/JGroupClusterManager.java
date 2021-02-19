@@ -13,8 +13,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.jgroups.*;
 import org.jgroups.util.MessageBatch;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -78,7 +76,7 @@ public class JGroupClusterManager implements ClusterManager, Receiver {
             log.info("Handling State event {}", message);
 
             State state = (State) message;
-            String address = state.getAddress();
+            String address = state.getMemberId();
             if (clusterState.getMembers().containsKey(address)) {
                 Member member = clusterState.getMembers().get(address);
                 createMember(state, member);

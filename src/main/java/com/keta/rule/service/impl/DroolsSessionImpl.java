@@ -4,10 +4,10 @@ import com.keta.rule.Fact;
 import com.keta.rule.cluster.ClusterManager;
 import com.keta.rule.cluster.MessageReceiver;
 import com.keta.rule.cluster.notify.Update;
+import com.keta.rule.config.ConfigData;
+import com.keta.rule.model.RuleVersion;
 import com.keta.rule.service.GitService;
 import com.keta.rule.service.Session;
-import com.keta.rule.model.RuleVersion;
-import com.keta.rule.config.ConfigData;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.kie.api.KieServices;
@@ -19,11 +19,8 @@ import org.kie.api.runtime.KieContainer;
 import org.kie.api.runtime.KieSession;
 import org.kie.internal.io.ResourceFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.DependsOn;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.scheduling.annotation.Schedules;
-import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import java.io.File;
@@ -33,9 +30,9 @@ import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Log4j2
-public class DroolsSessionImpl implements Session , MessageReceiver {
+public class DroolsSessionImpl implements Session, MessageReceiver {
 
-    private static final String [] SUPPORTED_FILE_TYPE = {"drl","xlsx"};
+    private static final String[] SUPPORTED_FILE_TYPE = {"drl", "xlsx"};
 
     private KieServices kieServices = KieServices.Factory.get();
 
@@ -47,7 +44,7 @@ public class DroolsSessionImpl implements Session , MessageReceiver {
 
 
     @PostConstruct
-    public void init(){
+    public void init() {
         log.info("Initializing Drools Session");
         clusterManager.setMessageReceiver(this);
         createSession();
@@ -63,14 +60,14 @@ public class DroolsSessionImpl implements Session , MessageReceiver {
 
     @Override
     public <T extends Fact> void fireRules(T t) {
-        log.debug("Executing rules on fact {}",t);
+        log.debug("Executing rules on fact {}", t);
         kieSession.insert(t);
         kieSession.fireAllRules();
     }
 
     private List<String> ruleTables() {
         String ruleFileDirectory = configData.getClonedDirectory() + File.separator + configData.getDirectory();
-        log.info("Extracting Rules tables from {}",ruleFileDirectory);
+        log.info("Extracting Rules tables from {}", ruleFileDirectory);
         File ruleDirectory = new File(ruleFileDirectory);
         File[] files = ruleDirectory.listFiles();
         return Arrays.stream(files).sequential().filter(File::isFile)
@@ -78,7 +75,7 @@ public class DroolsSessionImpl implements Session , MessageReceiver {
                 .map(File::getPath).collect(Collectors.toList());
     }
 
-    private boolean getFileExtension(String fileName){
+    private boolean getFileExtension(String fileName) {
         String extension = fileName.substring(fileName.lastIndexOf(".") + 1);
         for (String supportedExtension : SUPPORTED_FILE_TYPE) {
             if (extension.equals(supportedExtension)) {
@@ -88,10 +85,10 @@ public class DroolsSessionImpl implements Session , MessageReceiver {
         return false;
     }
 
-    private KieFileSystem getKieFileSystem(){
+    private KieFileSystem getKieFileSystem() {
         KieFileSystem kieFileSystem = kieServices.newKieFileSystem();
         List<String> rulesTables = ruleTables();
-        log.info("Creating Kie file system from files {}",rulesTables);
+        log.info("Creating Kie file system from files {}", rulesTables);
         for (String rule : rulesTables) {
             kieFileSystem.write(ResourceFactory.newFileResource(rule));
         }
@@ -103,7 +100,7 @@ public class DroolsSessionImpl implements Session , MessageReceiver {
         kieRepository.addKieModule(kieRepository::getDefaultReleaseId);
     }
 
-    private void createSession(){
+    private void createSession() {
         getKieRepository();
         log.debug("Creating KieBuilder");
         KieBuilder kb = kieServices.newKieBuilder(getKieFileSystem());
@@ -116,7 +113,7 @@ public class DroolsSessionImpl implements Session , MessageReceiver {
         log.info("KieSession created");
     }
 
-    @Scheduled(fixedRateString = "${com.keta.rule.state-update-rate:10000}",initialDelayString = "${com.keta.rule.state-update-delay:10000}")
+    @Scheduled(fixedRateString = "${com.keta.rule.state-update-rate:10000}", initialDelayString = "${com.keta.rule.state-update-delay:10000}")
     @Async
     @Override
     public RuleVersion getCurrentVersion() {
