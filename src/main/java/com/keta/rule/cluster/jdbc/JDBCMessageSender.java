@@ -1,5 +1,6 @@
 package com.keta.rule.cluster.jdbc;
 
+import com.keta.rule.cluster.MessageSender;
 import com.keta.rule.cluster.notify.*;
 import com.keta.rule.exception.JDBCClusterException;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,7 @@ import java.util.List;
 
 @RequiredArgsConstructor
 @Log4j2
-public class JDBCMessageSender {
+public class JDBCMessageSender implements MessageSender {
 
 
     public void notifyJoin(List<JDBCMembers> members, Join join) {
@@ -34,6 +35,10 @@ public class JDBCMessageSender {
         members.forEach(member -> sendMessage(member, state));
     }
 
+    @Override
+    public void notifyLeave(List<JDBCMembers> members, Leave leave) {
+        members.forEach(member -> sendMessage(member, leave));
+    }
 
     private void sendMessage(JDBCMembers jdbcMember, ClusterMessage clusterMessage) {
         String messageName = clusterMessage.getClass().getSimpleName();

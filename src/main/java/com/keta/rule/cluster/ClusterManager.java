@@ -1,23 +1,24 @@
 package com.keta.rule.cluster;
 
+import com.keta.rule.cluster.notify.State;
 import com.keta.rule.cluster.notify.Update;
 import com.keta.rule.cluster.state.ClusterState;
-import com.keta.rule.model.RuleVersion;
+import com.keta.rule.model.UpdateRequest;
 
 public interface ClusterManager {
-
-    void setMessageReceiver(MessageReceiver receiver);
 
     void join();
 
     void leave();
 
-    void notifyForRefresh();
+    void notifyRefresh();
 
-    void notifyUpdateUpdate(Update update);
+    void notify(UpdateRequest updateRequest);
+
+    void notify(State state);
 
     ClusterState getClusterState();
 
-    void notifyState(RuleVersion ruleVersion);
+    String getMemberId();
 
 }

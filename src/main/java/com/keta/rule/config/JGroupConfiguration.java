@@ -2,6 +2,7 @@ package com.keta.rule.config;
 
 import com.keta.rule.cluster.ClusterManager;
 import com.keta.rule.cluster.jgroup.JGroupClusterManager;
+import com.keta.rule.cluster.jgroup.JGroupMessageReceiver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.jgroups.JChannel;
@@ -48,8 +49,13 @@ public class JGroupConfiguration {
     }
 
     @Bean
-    public ClusterManager clusterManager(JChannel jChannel){
-        return new JGroupClusterManager(jChannel);
+    public ClusterManager clusterManager(JChannel jChannel, JGroupMessageReceiver jGroupMessageReceiver){
+        return new JGroupClusterManager(jChannel,jGroupMessageReceiver);
+    }
+
+    @Bean
+    public JGroupMessageReceiver jGroupMessageReceiver(JChannel jChannel){
+        return new JGroupMessageReceiver(jChannel);
     }
 
     @PreDestroy

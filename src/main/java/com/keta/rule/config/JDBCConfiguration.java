@@ -1,11 +1,11 @@
 package com.keta.rule.config;
 
 import com.keta.rule.cluster.ClusterManager;
-import com.keta.rule.cluster.MessageReceiver;
 import com.keta.rule.cluster.jdbc.JDBCClusterManager;
 import com.keta.rule.cluster.jdbc.JDBCMessageReceiver;
 import com.keta.rule.cluster.jdbc.JDBCMessageSender;
 import com.keta.rule.cluster.jdbc.SQLConnector;
+import com.keta.rule.cluster.state.ClusterState;
 import com.keta.rule.exception.JDBCClusterException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -17,13 +17,13 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 
 import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
 import java.nio.channels.ServerSocketChannel;
 import java.util.UUID;
 
@@ -39,6 +39,7 @@ import java.util.UUID;
 public class JDBCConfiguration {
 
     private static final String MEMBER_ID = UUID.randomUUID().toString();
+    private static final ClusterState CLUSTER_STATE = new ClusterState();
 
     @PostConstruct
     public void init() {
@@ -48,22 +49,23 @@ public class JDBCConfiguration {
     private final ConfigData configData;
 
     @Bean
-    public ClusterManager clusterManager(DataSource dataSource){
-        return new JDBCClusterManager(new SQLConnector(dataSource,MEMBER_ID),MEMBER_ID,jdbcMessageReceiver(),new JDBCMessageSender(),configData.getPort());
+    @DependsOn("jdbcMessageReceiver")
+    public ClusterManager clusterManager(DataSource dataSource) {
+        return new JDBCClusterManager(CLUSTER_STATE,new SQLConnector(dataSource, MEMBER_ID), MEMBER_ID, new JDBCMessageSender(), configData.getPort());
     }
 
-    public JDBCMessageReceiver jdbcMessageReceiver(){
+    @Bean
+    public JDBCMessageReceiver jdbcMessageReceiver() {
         try {
             InetSocketAddress inetSocketAddress = new InetSocketAddress(InetAddress.getLocalHost(), configData.getPort());
             ServerSocketChannel serverChannel = ServerSocketChannel.open();
             serverChannel.configureBlocking(false);
             serverChannel.socket().bind(inetSocketAddress);
-            JDBCMessageReceiver jdbcMessageReceiver = new JDBCMessageReceiver(serverChannel);
-            jdbcMessageReceiver.init();
+            JDBCMessageReceiver jdbcMessageReceiver = new JDBCMessageReceiver(serverChannel,CLUSTER_STATE);
             return jdbcMessageReceiver;
         } catch (IOException e) {
-            log.error("Failed to create Server Socket",e);
-            throw new JDBCClusterException("Failed to create Server Socket",e);
+            log.error("Failed to create Server Socket", e);
+            throw new JDBCClusterException("Failed to create Server Socket", e);
         }
     }
 

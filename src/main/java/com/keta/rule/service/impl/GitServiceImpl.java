@@ -6,13 +6,13 @@ import com.keta.rule.model.RuleVersion;
 import com.keta.rule.service.GitService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.eclipse.jgit.api.CreateBranchCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
-import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import java.io.File;
@@ -23,16 +23,21 @@ import java.util.*;
 @RequiredArgsConstructor
 public class GitServiceImpl implements GitService {
 
-    private final ConfigData configData;
+    private final String clonedDirectory;
+    private final String userName;
+    private final String token;
+    private final String url;
+    private final String branch;
+
 
     @PostConstruct
     public void init() {
-//        cloneRepo();
+        cloneRepo();
     }
 
     @Override
     public void cloneRepo() {
-        File file = new File(configData.getClonedDirectory());
+        File file = new File(clonedDirectory);
         Git git = null;
         try {
             if (file.exists()) {
@@ -42,37 +47,55 @@ public class GitServiceImpl implements GitService {
                 log.info("Rule repo does not exists locally, cloning the rules");
                 Git.cloneRepository();
                 git = Git.cloneRepository()
-                        .setCredentialsProvider(new UsernamePasswordCredentialsProvider(configData.getGitUserName(), configData.getGitToken()))
-                        .setURI(configData.getGitUrl()).setDirectory(file).call();
+                        .setCredentialsProvider(new UsernamePasswordCredentialsProvider(userName, token))
+                        .setURI(url).setDirectory(file).call();
             }
             git.pull().call();
+            git.checkout().setCreateBranch(true).setName(branch)
+                    .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.TRACK)
+                    .setStartPoint("origin/"+branch).call();
+
         } catch (GitAPIException | IOException e) {
             log.error("Failed to close/pull repo ", e);
-            throw new GitException("Failed to close/pull repo ",e);
-        }finally {
-            if(git != null){
+            throw new GitException("Failed to close/pull repo ", e);
+        } finally {
+            if (git != null) {
                 git.close();
             }
         }
-        log.info("Successfully cloned/pulled the repo {} ", configData.getGitUrl());
+        log.info("Successfully cloned/pulled the repo {} ", url);
     }
 
     @Override
     public void pullRepo() {
-        File file = new File(configData.getClonedDirectory());
+        File file = new File(clonedDirectory);
         try (Git git = Git.open(file)) {
             log.info("Rule repo exists locally, pulling the rules");
             git.pull().call();
         } catch (IOException | GitAPIException e) {
             log.error("Failed to pull repo ", e);
-            throw new GitException("Failed to pull repo ",e);
+            throw new GitException("Failed to pull repo ", e);
+        }
+    }
+
+    @Override
+    public void checkoutFor(String commit) {
+        File file = new File(clonedDirectory);
+        try (Git git = Git.open(file)) {
+            log.info("Rule repo exists locally, pulling the rules");
+            git.pull().call();
+            log.info("Checking out to commit {}", commit);
+            git.checkout().setName(commit).call();
+        } catch (IOException | GitAPIException e) {
+            log.error("Failed to pull repo ", e);
+            throw new GitException("Failed to pull repo ", e);
         }
     }
 
     @Override
     public RuleVersion getCurrentVersion() {
         log.info("Get Current version of the rules");
-        File file = new File(configData.getClonedDirectory());
+        File file = new File(clonedDirectory);
         try (Git git = Git.open(file)) {
             Ref head = git.getRepository().getRefDatabase().findRef("HEAD");
             List<Ref> list = git.tagList().call();
@@ -85,7 +108,7 @@ public class GitServiceImpl implements GitService {
             return ruleVersion;
         } catch (IOException | GitAPIException e) {
             log.error("Error getting rule version", e);
-            throw new GitException("Error getting rule version",e);
+            throw new GitException("Error getting rule version", e);
         }
 
     }

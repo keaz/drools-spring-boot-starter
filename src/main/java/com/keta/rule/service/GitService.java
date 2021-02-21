@@ -8,6 +8,8 @@ public interface GitService {
 
     void pullRepo();
 
+    void checkoutFor(String commit);
+
     RuleVersion getCurrentVersion();
 
 }

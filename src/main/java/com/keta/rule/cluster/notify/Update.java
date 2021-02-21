@@ -5,8 +5,11 @@ import lombok.Value;
 @Value
 public class Update extends ClusterMessage {
 
-    public Update(String address) {
+    private final String commitId;
+
+    public Update(String commitId,String address) {
         super(address);
+        this.commitId = commitId;
     }
 
 }

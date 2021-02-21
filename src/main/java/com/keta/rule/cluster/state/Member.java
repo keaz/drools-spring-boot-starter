@@ -10,7 +10,7 @@ import java.util.Date;
 public class Member {
 
     @EqualsAndHashCode.Include
-    private String address;
+    private String memberId;
     private String gitTag;
     private String commitId;
     private String commitAuthor;

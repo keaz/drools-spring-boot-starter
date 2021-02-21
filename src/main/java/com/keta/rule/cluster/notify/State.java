@@ -1,6 +1,5 @@
 package com.keta.rule.cluster.notify;
 
-import lombok.Data;
 import lombok.Getter;
 
 import java.util.Date;

@@ -9,7 +9,6 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 
 @RequiredArgsConstructor
 @Log4j2
@@ -22,16 +21,23 @@ public class SQLConnector {
     private static final String REGISTER = "INSERT INTO cluster_member (member_id,host_name,port) VALUES (?,?,?)";
     private static final String LEAVE = "DELETE FROM cluster_member WHERE member_id = ?";
 
+    private static final String UPDATE_RULE_VERSION = "INSERT INTO rule_version (commit_id,updated_time,status) VALUES" +
+            " (?,?,?)";
+    private static final String CHANGE_ALL_RULE_STATUS = "UPDATE rule_version set status = ?";
+    private static final String ACTIVE_RULE = "SELECT commit_id FROM rule_version WHERE status = 0";
+
     private final DataSource dataSource;
     private final String memberId;
 
     public void register(String hostName, int port) {
         try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
             try (PreparedStatement preparedStatement = connection.prepareStatement(REGISTER)) {
                 preparedStatement.setString(1, memberId);
                 preparedStatement.setString(2, hostName);
                 preparedStatement.setInt(3, port);
                 preparedStatement.executeUpdate();
+                connection.commit();
             }
         } catch (SQLException sqlException) {
             log.error("Failed to add member to the database ", sqlException);
@@ -41,9 +47,11 @@ public class SQLConnector {
 
     public void leave() {
         try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
             try (PreparedStatement preparedStatement = connection.prepareStatement(LEAVE)) {
                 preparedStatement.setString(1, memberId);
                 preparedStatement.executeUpdate();
+                connection.commit();
             }
         } catch (SQLException sqlException) {
             log.error("Failed to delete member to the database ", sqlException);
@@ -73,6 +81,47 @@ public class SQLConnector {
             throw new JDBCClusterException("Failed getting members from the database ", sqlException);
         }
         return Collections.emptyList();
+    }
+
+    public void updateRuleVersion(String commitId){
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try (PreparedStatement preparedStatement = connection.prepareStatement(CHANGE_ALL_RULE_STATUS)) {
+                preparedStatement.setBoolean(1, false);
+                preparedStatement.executeUpdate();
+            }
+
+            try (PreparedStatement preparedStatement = connection.prepareStatement(UPDATE_RULE_VERSION)) {
+                preparedStatement.setString(1, commitId);
+                preparedStatement.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
+                preparedStatement.setBoolean(3, true);
+                preparedStatement.executeUpdate();
+            }
+
+            connection.commit();
+        } catch (SQLException sqlException) {
+            log.error("Failed to update rule version to the database ", sqlException);
+            throw new JDBCClusterException("Failed to update rule version to the database ", sqlException);
+        }
+    }
+
+
+    public String getActiveRuleVersion(){
+        try (Connection connection = dataSource.getConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                boolean hasResults = statement.execute(ACTIVE_RULE);
+                if (hasResults) {
+                    ResultSet resultSet = statement.getResultSet();
+                    while (resultSet.next()) {
+                        return resultSet.getString("commit_id");
+                    }
+                }
+            }
+        } catch (SQLException sqlException) {
+            log.error("Failed get active rule version from the database ", sqlException);
+            throw new JDBCClusterException("Failed get active rule version from the database ", sqlException);
+        }
+        return null;
     }
 
 

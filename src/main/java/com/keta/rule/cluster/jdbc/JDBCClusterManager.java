@@ -1,13 +1,10 @@
 package com.keta.rule.cluster.jdbc;
 
 import com.keta.rule.cluster.ClusterManager;
-import com.keta.rule.cluster.MessageReceiver;
-import com.keta.rule.cluster.notify.Join;
-import com.keta.rule.cluster.notify.State;
-import com.keta.rule.cluster.notify.Update;
+import com.keta.rule.cluster.notify.*;
 import com.keta.rule.cluster.state.ClusterState;
 import com.keta.rule.exception.JDBCClusterException;
-import com.keta.rule.model.RuleVersion;
+import com.keta.rule.model.UpdateRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
@@ -21,18 +18,12 @@ import java.util.List;
 @Log4j2
 public class JDBCClusterManager implements ClusterManager {
 
-    private final ClusterState clusterState = new ClusterState();
+    private final ClusterState clusterState;
     private final SQLConnector sqlConnector;
     private final String memberId;
-    private final JDBCMessageReceiver messageReceiver;
     private final JDBCMessageSender jdbcMessageSender;
     private final int port;
     private String hostName;
-
-    @Override
-    public void setMessageReceiver(MessageReceiver receiver) {
-        //#TODO not implemented yet
-    }
 
     @PostConstruct
     @Override
@@ -58,29 +49,35 @@ public class JDBCClusterManager implements ClusterManager {
     public void leave() {
         log.info("Leaving the JDBC cluster");
         sqlConnector.leave();
+        jdbcMessageSender.notifyLeave(sqlConnector.members(),new Leave(memberId));
     }
 
     @Override
-    public void notifyForRefresh() {
-        //#TODO not implemented yet
-    }
-
-    @Override
-    public void notifyUpdateUpdate(Update update) {
+    public void notifyRefresh() {
         List<JDBCMembers> members = sqlConnector.members();
-        jdbcMessageSender.notifyUpdate(members, update);
+        jdbcMessageSender.notifyForRefresh(members,new Refresh(memberId));
+    }
+
+    @Override
+    public void notify(UpdateRequest updateRequest) {
+        List<JDBCMembers> members = sqlConnector.members();
+        jdbcMessageSender.notifyUpdate(members, new Update(updateRequest.getCommitId(),memberId));
     }
 
     @Override
     public ClusterState getClusterState() {
-        return null;
+        return clusterState;
     }
 
     @Override
-    public void notifyState(RuleVersion ruleVersion) {
+    public void notify(State state) {
         List<JDBCMembers> members = sqlConnector.members();
-        State state = new State(memberId, ruleVersion.getGitTag(), ruleVersion.getCommitId(), ruleVersion.getCommitAuthor(),
-                ruleVersion.getCommitDate(), ruleVersion.getCommitMessage());
         jdbcMessageSender.notifyState(members, state);
     }
+
+    @Override
+    public String getMemberId() {
+        return memberId;
+    }
+
 }

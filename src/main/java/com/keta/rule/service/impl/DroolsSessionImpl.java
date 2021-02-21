@@ -2,8 +2,7 @@ package com.keta.rule.service.impl;
 
 import com.keta.rule.Fact;
 import com.keta.rule.cluster.ClusterManager;
-import com.keta.rule.cluster.MessageReceiver;
-import com.keta.rule.cluster.notify.Update;
+import com.keta.rule.cluster.notify.State;
 import com.keta.rule.config.ConfigData;
 import com.keta.rule.model.RuleVersion;
 import com.keta.rule.service.GitService;
@@ -18,35 +17,33 @@ import org.kie.api.builder.KieRepository;
 import org.kie.api.runtime.KieContainer;
 import org.kie.api.runtime.KieSession;
 import org.kie.internal.io.ResourceFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 
 import javax.annotation.PostConstruct;
 import java.io.File;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Log4j2
-public class DroolsSessionImpl implements Session, MessageReceiver {
+public class DroolsSessionImpl implements Session {
 
     private static final String[] SUPPORTED_FILE_TYPE = {"drl", "xlsx"};
 
-    private KieServices kieServices = KieServices.Factory.get();
+    private final KieServices kieServices = KieServices.Factory.get();
 
     private final ConfigData configData;
     private final GitService gitService;
     private final ClusterManager clusterManager;
-    @Autowired(required = false)
     private KieSession kieSession;
 
 
     @PostConstruct
     public void init() {
         log.info("Initializing Drools Session");
-        clusterManager.setMessageReceiver(this);
         createSession();
     }
 
@@ -57,6 +54,7 @@ public class DroolsSessionImpl implements Session, MessageReceiver {
         createSession();
         log.info("Refreshed Drools Session");
     }
+
 
     @Override
     public <T extends Fact> void fireRules(T t) {
@@ -70,6 +68,9 @@ public class DroolsSessionImpl implements Session, MessageReceiver {
         log.info("Extracting Rules tables from {}", ruleFileDirectory);
         File ruleDirectory = new File(ruleFileDirectory);
         File[] files = ruleDirectory.listFiles();
+        if(files == null){
+            return Collections.emptyList();
+        }
         return Arrays.stream(files).sequential().filter(File::isFile)
                 .filter(file -> getFileExtension(file.getName()))
                 .map(File::getPath).collect(Collectors.toList());
@@ -113,23 +114,20 @@ public class DroolsSessionImpl implements Session, MessageReceiver {
         log.info("KieSession created");
     }
 
-    @Scheduled(fixedRateString = "${com.keta.rule.state-update-rate:10000}", initialDelayString = "${com.keta.rule.state-update-delay:10000}")
-    @Async
     @Override
     public RuleVersion getCurrentVersion() {
-        RuleVersion currentVersion = gitService.getCurrentVersion();
-        clusterManager.notifyState(currentVersion);
-        return currentVersion;
+        return gitService.getCurrentVersion();
     }
 
+    @Scheduled(fixedRateString = "${com.keta.rule.state-update-rate:10000}", initialDelayString = "${com.keta.rule.state-update-delay:10000}")
+    @Async
+    public void notifyState() {
+        RuleVersion ruleVersion = gitService.getCurrentVersion();
+        State state = new State(clusterManager.getMemberId(), ruleVersion.getGitTag(), ruleVersion.getCommitId(),
+                ruleVersion.getCommitAuthor(), ruleVersion.getCommitDate()
+                , ruleVersion.getCommitMessage());
 
-    @Override
-    public void handleRefresh() {
-        refresh();
+        clusterManager.notify(state);
     }
 
-    @Override
-    public void handleUpdate(Update update) {
-
-    }
 }

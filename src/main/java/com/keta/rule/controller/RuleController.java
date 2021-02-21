@@ -1,15 +1,13 @@
 package com.keta.rule.controller;
 
 import com.keta.rule.cluster.ClusterManager;
+import com.keta.rule.cluster.notify.Update;
 import com.keta.rule.cluster.state.ClusterState;
+import com.keta.rule.model.UpdateRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.DependsOn;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RequiredArgsConstructor
 @RestController
@@ -20,7 +18,7 @@ public class RuleController {
 
     @PutMapping("refresh")
     public ResponseEntity<Void> refresh() {
-        clusterManager.notifyForRefresh();
+        clusterManager.notifyRefresh();
         return ResponseEntity.status(HttpStatus.ACCEPTED).build();
     }
 
@@ -28,6 +26,13 @@ public class RuleController {
     public ResponseEntity<ClusterState> info() {
         return ResponseEntity.ok(clusterManager.getClusterState());
     }
+
+    @PostMapping
+    public ResponseEntity<Void> updateRule(@RequestBody UpdateRequest updateRequest){
+        clusterManager.notify(updateRequest);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).build();
+    }
+
 
 
 }
